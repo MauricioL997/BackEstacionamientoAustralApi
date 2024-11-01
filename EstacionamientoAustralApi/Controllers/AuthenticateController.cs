@@ -1,4 +1,5 @@
 ﻿using Common.Dtos;
+using Common.Utils;
 using Data.Entities;
 using Data.Repositories;
 using Microsoft.AspNetCore.Mvc;
@@ -15,11 +16,13 @@ namespace EstacionamientoAustral.Controllers
     {
         private readonly IUserRepository _userRepository;
         private readonly IConfiguration _config;
+        private readonly JwtUtils _jwtUtils;
 
-        public AuthenticateController(IUserRepository userRepository, IConfiguration configuration)
+        public AuthenticateController(IUserRepository userRepository, IConfiguration configuration, JwtUtils jwtUtils)
         {
             _userRepository = userRepository;
             _config = configuration;
+            _jwtUtils = jwtUtils;
         }
 
         [HttpPost]
@@ -51,5 +54,18 @@ namespace EstacionamientoAustral.Controllers
             }
             return Unauthorized();
         }
+        [HttpPost("refresh-token")]
+        public IActionResult RefreshToken([FromBody] TokenDto tokenDto)
+        {
+            var principal = _jwtUtils.GetPrincipalFromExpiredToken(tokenDto.Token);
+            if (principal == null)
+            {
+                return Unauthorized("Token inválido.");
+            }
+
+            var newToken = _jwtUtils.GenerateToken(principal.Claims);
+            return Ok(new { token = newToken });
+        }
+
     }
 }

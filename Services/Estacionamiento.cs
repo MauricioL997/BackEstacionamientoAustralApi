@@ -31,6 +31,17 @@ namespace Services
             return estacionamiento != null ? MapToDto(estacionamiento) : null;
         }
 
+        // Obtener las últimas transacciones de estacionamiento con información de cochera
+        public List<EstacionamientoDto> GetUltimasTransacciones(int cantidad)
+        {
+            return _repository.GetAllEstacionamientos()
+                              .Where(e => e.HoraEgreso != null && !e.Eliminado) // Filtra los que tienen HoraEgreso y no están eliminados
+                              .OrderByDescending(e => e.HoraIngreso) // Ordena por HoraIngreso de más reciente a más antiguo
+                              .Take(cantidad) // Toma la cantidad solicitada
+                              .Select(estacionamiento => MapToDtoWithCochera(estacionamiento)) // Mapea incluyendo la información de la cochera
+                              .ToList();
+        }
+
         // Agregar un nuevo estacionamiento
         public int AddEstacionamiento(EstacionamientoDto estacionamientoDto)
         {
@@ -63,7 +74,31 @@ namespace Services
             _repository.CerrarEstacionamiento(patente, idUsuarioEgreso);
         }
 
-        // Método de mapeo de entidad a DTO
+        // Método de mapeo de entidad a DTO con información de cochera
+        private EstacionamientoDto MapToDtoWithCochera(Estacionamiento estacionamiento)
+        {
+            return new EstacionamientoDto
+            {
+                Id = estacionamiento.Id,
+                Patente = estacionamiento.Patente,
+                HoraIngreso = estacionamiento.HoraIngreso,
+                HoraEgreso = estacionamiento.HoraEgreso,
+                Costo = estacionamiento.Costo,
+                IdUsuarioIngreso = estacionamiento.IdUsuarioIngreso,
+                IdUsuarioEgreso = estacionamiento.IdUsuarioEgreso,
+                IdCochera = estacionamiento.IdCochera,
+                Eliminado = estacionamiento.Eliminado,
+                Cochera = estacionamiento.Cochera != null ? new CocheraDto
+                {
+                    Id = estacionamiento.Cochera.Id,
+                    Descripcion = estacionamiento.Cochera.Descripcion,
+                    Deshabilitada = estacionamiento.Cochera.Deshabilitada,
+                    Eliminada = estacionamiento.Cochera.Eliminada
+                } : null
+            };
+        }
+
+        // Método de mapeo de entidad a DTO (sin información de cochera)
         private EstacionamientoDto MapToDto(Estacionamiento estacionamiento)
         {
             return new EstacionamientoDto

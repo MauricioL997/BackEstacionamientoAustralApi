@@ -43,6 +43,19 @@ namespace EstacionamientoAustralApi.Controllers
             return Ok(estacionamiento);
         }
 
+        // Obtener las últimas transacciones de estacionamiento con información de cochera
+        [HttpGet("UltimasTransacciones")]
+        public ActionResult<List<EstacionamientoDto>> GetUltimasTransacciones([FromQuery] int cantidad = 5)
+        {
+            var transacciones = _estacionamientoService.GetUltimasTransacciones(cantidad);
+            if (transacciones == null || transacciones.Count == 0)
+            {
+                return NotFound("No se encontraron transacciones recientes.");
+            }
+
+            return Ok(transacciones);
+        }
+
         // Agregar un nuevo estacionamiento
         [HttpPost]
         public ActionResult<int> AddEstacionamiento([FromBody] EstacionamientoDto estacionamiento)

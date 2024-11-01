@@ -6,16 +6,15 @@ using System.Linq;
 
 namespace Data.Repositories
 {
-    public class IEstacionamientoRepository
+    public class IEstacionamientoRepository 
     {
-  
         private readonly ApplicationContext _context;
-        private readonly ITarifaRepository _tarifaRepository; // Inyección de dependencia
+        private readonly ITarifaRepository _tarifaRepository;
 
         public IEstacionamientoRepository(ApplicationContext context, ITarifaRepository tarifaRepository)
         {
             _context = context;
-            _tarifaRepository = tarifaRepository; // Asignamos el repositorio de tarifas
+            _tarifaRepository = tarifaRepository;
         }
 
         public List<Estacionamiento> GetAllEstacionamientos()
@@ -26,6 +25,16 @@ namespace Data.Repositories
         public Estacionamiento GetEstacionamientoById(int id)
         {
             return _context.Estacionamientos.FirstOrDefault(e => e.Id == id && !e.Eliminado);
+        }
+
+        // Obtener las últimas transacciones de estacionamiento
+        public List<Estacionamiento> GetUltimasTransacciones(int cantidad)
+        {
+            return _context.Estacionamientos
+                .Where(e => e.HoraEgreso != null && !e.Eliminado) // Filtra los estacionamientos con HoraEgreso y no eliminados
+                .OrderByDescending(e => e.HoraIngreso) // Ordena de más reciente a más antiguo
+                .Take(cantidad) // Toma la cantidad especificada
+                .ToList();
         }
 
         public int AddEstacionamiento(Estacionamiento estacionamiento)
@@ -54,7 +63,6 @@ namespace Data.Repositories
         // Nueva funcionalidad: abrir cochera
         public int AbrirEstacionamiento(string patente, int idUsuarioIngreso, int idCochera)
         {
-            // Verificar si la cochera ya está ocupada
             var cocheraOcupada = _context.Estacionamientos
                 .Any(e => e.IdCochera == idCochera && e.HoraEgreso == null && !e.Eliminado);
 
@@ -63,7 +71,6 @@ namespace Data.Repositories
                 throw new InvalidOperationException("La cochera ya está ocupada.");
             }
 
-            // Registrar el ingreso del coche
             var nuevoEstacionamiento = new Estacionamiento
             {
                 Patente = patente,
@@ -80,7 +87,6 @@ namespace Data.Repositories
         // Nueva funcionalidad: cerrar cochera
         public void CerrarEstacionamiento(string patente, int idUsuarioEgreso)
         {
-            // Encontrar el estacionamiento abierto para la patente dada
             var estacionamiento = _context.Estacionamientos
                 .FirstOrDefault(e => e.Patente == patente && e.HoraEgreso == null && !e.Eliminado);
 
@@ -89,14 +95,11 @@ namespace Data.Repositories
                 throw new InvalidOperationException("No hay un estacionamiento activo para la patente dada.");
             }
 
-            // Calcular el tiempo de estacionamiento
             var tiempoEstacionado = DateTime.Now - estacionamiento.HoraIngreso;
             var minutosEstacionados = tiempoEstacionado.TotalMinutes;
 
-            // Definir el costo basado en las tarifas
             decimal costo = CalcularCosto(minutosEstacionados);
 
-            // Registrar el egreso
             estacionamiento.HoraEgreso = DateTime.Now;
             estacionamiento.IdUsuarioEgreso = idUsuarioEgreso;
             estacionamiento.Costo = costo;
@@ -107,7 +110,6 @@ namespace Data.Repositories
 
         private decimal CalcularCosto(double minutosEstacionados)
         {
-            // Obtener tarifas usando el repositorio de tarifas
             var tarifaMediaHora = _tarifaRepository.GetAllTarifas()
                 .FirstOrDefault(t => t.Descripcion == "MEDIA HORA");
             var tarifaUnaHora = _tarifaRepository.GetAllTarifas()
@@ -115,13 +117,11 @@ namespace Data.Repositories
             var tarifaValorHora = _tarifaRepository.GetAllTarifas()
                 .FirstOrDefault(t => t.Descripcion == "VALOR HORA");
 
-            // Validar que las tarifas no sean nulas antes de usarlas
             if (tarifaMediaHora == null || tarifaUnaHora == null || tarifaValorHora == null)
             {
                 throw new InvalidOperationException("Las tarifas requeridas no están definidas en la base de datos.");
             }
 
-            // Calcular el costo según el tiempo estacionado
             if (minutosEstacionados <= 30)
             {
                 return tarifaMediaHora.Valor;
@@ -132,10 +132,8 @@ namespace Data.Repositories
             }
             else
             {
-                // Usamos tarifaValorHora para cada hora adicional después de la primera
                 return (decimal)(minutosEstacionados / 60) * tarifaValorHora.Valor;
             }
         }
     }
-    
 }
